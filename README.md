@@ -1,2 +1,2 @@
 # RAIH_API
-Creating APIs for AI features 
+Creating APIs for RAIH AI features 
