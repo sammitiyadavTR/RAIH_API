@@ -3,3 +3,4 @@ uvicorn>=0.22.0
 python-multipart>=0.0.6
 requests>=2.28.2
 open_arena_lib
+python-dotenv>=1.0.0

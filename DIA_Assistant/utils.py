@@ -2,24 +2,26 @@ import os
 import sys
 import json
 import requests
+from dotenv import load_dotenv
 from open_arena_lib.auth import AuthClient
 from open_arena_lib.file import FileClient
 from open_arena_lib.chat import Chat
 
-def default_token_provider():
-    """
-    Personal Token
-    
-    """
-    print("Attempting to read token file...")
-    try:
-        with open("DIA_Assistant/token.txt", "r") as file:
-            token = file.read().strip()
-        print("Token file read successfully")
-        return token
-    except Exception as e:
-        print(f"Error reading token file: {e}")
-        raise
+# Load environment variables from .env file
+load_dotenv()
+
+# Authentication Configuration
+AUTH_URL = os.getenv("AUTH_URL")
+CLIENT_ID = os.getenv("CLIENT_ID")
+CLIENT_SECRET = os.getenv("CLIENT_SECRET")
+AUDIENCE = os.getenv("AUDIENCE")
+GRANT_TYPE = os.getenv("GRANT_TYPE")
+
+# Workflow Configuration
+WORKFLOW_ID = os.getenv("WORKFLOW_ID")
+
+# Token Configuration
+PERSONAL_TOKEN = os.getenv("PERSONAL_TOKEN")
 
 def token_provider():
     """
@@ -34,12 +36,12 @@ def token_provider():
         }
 
         data = {
-            "client_id": "6TVQhjfIl8c8jhcYPD7eOKUAZPmG0LPk",
-            "client_secret": "J6WNwDu5DHE2sj_aop0-J9BRVbbausKcw6mDPt2ZRU8lw_TsqbnTo1_OuXazsyuh", 
-            "audience": "49d70a58-9509-48a2-ae12-4f6e00ceb270",
-            "grant_type": "client_credentials"
+            "client_id": CLIENT_ID,
+            "client_secret": CLIENT_SECRET, 
+            "audience": AUDIENCE,
+            "grant_type": GRANT_TYPE
         }
-        response = requests.post('https://auth.thomsonreuters.com/oauth/token', headers=headers, data=data)
+        response = requests.post(AUTH_URL, headers=headers, data=data)
         token = json.loads(response.text)
         return token["access_token"]
     except Exception as e:
@@ -58,8 +60,8 @@ def process_dia_request(uploaded_file_path=None, text_input=None):
     """
     try:
         # Initialize authentication
-        auth = AuthClient(token_provider=default_token_provider)
-        workflow_id = "89f62481-2a7e-409b-afe3-5c575d83215c"
+        auth = AuthClient(token_provider=PERSONAL_TOKEN if PERSONAL_TOKEN else token_provider)
+        workflow_id = WORKFLOW_ID
         
         # Initialize file client
         fc = FileClient(auth=auth)

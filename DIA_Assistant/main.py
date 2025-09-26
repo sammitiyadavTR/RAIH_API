@@ -8,6 +8,26 @@ import tempfile
 import shutil
 from typing import Optional
 import uvicorn
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+# API Configuration
+HOST = os.getenv("HOST")
+PORT = int(os.getenv("PORT"))
+RELOAD = os.getenv("RELOAD").lower() == "true"
+
+# Directory Configuration
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+UPLOADS_DIR = os.path.join(BASE_DIR, os.getenv("UPLOADS_DIR"))
+STATIC_DIR = os.path.join(BASE_DIR, os.getenv("STATIC_DIR"))
+
+# CORS Configuration
+ALLOW_ORIGINS = os.getenv("ALLOW_ORIGINS")
+ALLOW_CREDENTIALS = os.getenv("ALLOW_CREDENTIALS").lower() == "true"
+ALLOW_METHODS = os.getenv("ALLOW_METHODS")
+ALLOW_HEADERS = os.getenv("ALLOW_HEADERS")
 
 from utils import process_dia_request
 
@@ -23,18 +43,13 @@ app = FastAPI(
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
-    allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
+    allow_origins=[ALLOW_ORIGINS],  # Allows all origins by default
+    allow_credentials=ALLOW_CREDENTIALS,
+    allow_methods=[ALLOW_METHODS],  # Allows all methods by default
+    allow_headers=[ALLOW_HEADERS],  # Allows all headers by default
 )
 
-# Get the directory where this script is located
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
 # Create necessary directories if they don't exist
-UPLOADS_DIR = os.path.join(BASE_DIR, "uploads")
-STATIC_DIR = os.path.join(BASE_DIR, "static")
 
 os.makedirs(UPLOADS_DIR, exist_ok=True)
 os.makedirs(STATIC_DIR, exist_ok=True)
@@ -99,23 +114,5 @@ async def analyze_data(
             os.unlink(uploaded_file_path)
         raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
 
-@app.post("/analyze-text")
-async def analyze_text(request: TextAnalysisRequest):
-    """
-    Analyze text input using AI-assisted DIA
-    
-    Parameters:
-    - request: JSON object containing text_input
-    
-    Returns:
-    - JSON response with analysis result
-    """
-    try:
-        # Process the text request
-        result = process_dia_request(None, request.text_input)
-        return JSONResponse(content={"result": result})
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
-
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("main:app", host=HOST, port=PORT, reload=RELOAD)
