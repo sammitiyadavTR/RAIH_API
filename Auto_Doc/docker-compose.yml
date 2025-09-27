@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  autodoc:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: autodoc-api
+    ports:
+      - "5001:5001"
+    environment:
+      # Thomson Reuters OpenArena Configuration
+      - AUTH_URL=${AUTH_URL:-https://auth.thomsonreuters.com/oauth/token}
+      - CLIENT_ID=${CLIENT_ID}
+      - CLIENT_SECRET=${CLIENT_SECRET}
+      - AUDIENCE=${AUDIENCE}
+      - GRANT_TYPE=${GRANT_TYPE:-client_credentials}
+      - PERSONAL_TOKEN=${PERSONAL_TOKEN}
+      
+      # Application Configuration
+      - PYTHONPATH=/app
+      - PORT=5001
+      
+    volumes:
+      # Persistent storage for generated documentation
+      - autodoc-output:/app/output
+      - autodoc-logs:/app/logs
+      - autodoc-temp:/app/temp
+      
+      # Optional: Mount local directories for development
+      # - ./output:/app/output
+      # - ./logs:/app/logs
+      
+    restart: unless-stopped
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  autodoc-output:
+    driver: local
+  autodoc-logs:
+    driver: local  
+  autodoc-temp:
+    driver: local
+
+networks:
+  default:
+    name: raih-network

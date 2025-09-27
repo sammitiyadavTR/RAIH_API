@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import re
 import markdown
@@ -9,7 +10,11 @@ import os
 
 from OpenArena_ChatbotChain import SimpleRouterAgent
 
-app = FastAPI()
+app = FastAPI(
+    title="RAIH_CHATBOT API",
+    description="RAI-Z - Intelligent Conversational AI with SQL Query Capabilities",
+    version="1.0.0"
+)
 
 try:
     router = SimpleRouterAgent(confidence_threshold=0.36)
@@ -21,9 +26,25 @@ except Exception as e:
 class ChatbotRequest(BaseModel):
     message: str
 
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
 async def root():
-    return {"status": "success", "message": "FastAPI server is running"}
+    """Serve the main chat interface"""
+    try:
+        # Get the directory where this script is located
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        template_path = os.path.join(base_dir, "templates", "index.html")
+        
+        if os.path.exists(template_path):
+            return FileResponse(template_path)
+        else:
+            return HTMLResponse(content="<h1>RAIH_CHATBOT</h1><p>Chat interface not found. Use /chatbot endpoint for API access.</p>")
+    except Exception as e:
+        return HTMLResponse(content=f"<h1>RAIH_CHATBOT</h1><p>Error loading interface: {str(e)}</p>")
+
+@app.get("/health")
+async def health():
+    """Health check endpoint"""
+    return {"status": "success", "message": "RAIH_CHATBOT API is running", "service": "RAI-Z"}
 
 @app.post("/chatbot")
 async def chatbot(request: ChatbotRequest):

@@ -122,3 +122,7 @@ uploads/
 test_api.py
 test_client.py
 quick_test.py
+Auto_Doc/app_for_autodoc.py
+Auto_Doc/output/
+Auto_Doc/clarityforge_app/template_doc/
+Auto_Doc/temp

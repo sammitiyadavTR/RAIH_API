@@ -1,0 +1,90 @@
+version: '3.8'
+
+services:
+  dia-assistant:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dia-assistant-api
+    ports:
+      - "8000:8000"
+    environment:
+      # Server Configuration
+      - HOST=${HOST:-0.0.0.0}
+      - PORT=${PORT:-8000}
+      - RELOAD=${RELOAD:-false}
+      
+      # Directory Configuration
+      - UPLOADS_DIR=${UPLOADS_DIR:-uploads}
+      - STATIC_DIR=${STATIC_DIR:-static}
+      
+      # CORS Configuration
+      - ALLOW_ORIGINS=${ALLOW_ORIGINS:-*}
+      - ALLOW_CREDENTIALS=${ALLOW_CREDENTIALS:-true}
+      - ALLOW_METHODS=${ALLOW_METHODS:-*}
+      - ALLOW_HEADERS=${ALLOW_HEADERS:-*}
+      
+      # Thomson Reuters OpenArena Configuration
+      - CLIENT_ID=${CLIENT_ID}
+      - CLIENT_SECRET=${CLIENT_SECRET}
+      - AUDIENCE=${AUDIENCE}
+      - GRANT_TYPE=${GRANT_TYPE:-client_credentials}
+      - AUTH_URL=${AUTH_URL:-https://auth.thomsonreuters.com/oauth/token}
+      
+      # Application Configuration
+      - PYTHONPATH=/app
+      
+    volumes:
+      # Persistent storage for uploads, static files, and logs
+      - dia-assistant-uploads:/app/uploads
+      - dia-assistant-static:/app/static
+      - dia-assistant-logs:/app/logs
+      
+      # Optional: Mount local directories for development
+      # - ./uploads:/app/uploads
+      # - ./static:/app/static
+      # - ./logs:/app/logs
+      
+    restart: unless-stopped
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    # Network configuration
+    networks:
+      - raih-network
+
+volumes:
+  dia-assistant-uploads:
+    driver: local
+  dia-assistant-static:
+    driver: local
+  dia-assistant-logs:
+    driver: local
+
+networks:
+  raih-network:
+    driver: bridge
+    name: raih-network

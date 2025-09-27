@@ -8,10 +8,28 @@ import tempfile
 import shutil
 from typing import Optional
 import uvicorn
+import logging
+from datetime import datetime
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
+
+# Setup logging
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+LOG_DIR = os.path.join(BASE_DIR, "logs")
+os.makedirs(LOG_DIR, exist_ok=True)
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(os.path.join(LOG_DIR, f"dia_assistant_{datetime.now().strftime('%Y%m%d')}.log")),
+        logging.StreamHandler()
+    ]
+)
+logger = logging.getLogger(__name__)
 
 # API Configuration
 HOST = os.getenv("HOST")
@@ -31,14 +49,17 @@ ALLOW_HEADERS = os.getenv("ALLOW_HEADERS")
 
 from utils import process_dia_request
 
-class TextAnalysisRequest(BaseModel):
-    text_input: str
-
 app = FastAPI(
     title="AI-Assisted DIA API",
     description="API for AI-assisted Data Impact Assessment",
     version="1.0.0"
 )
+
+# Log application startup
+logger.info("=== DIA Assistant API Starting ===")
+logger.info(f"Host: {HOST}, Port: {PORT}, Reload: {RELOAD}")
+logger.info(f"Uploads Directory: {UPLOADS_DIR}")
+logger.info(f"Static Directory: {STATIC_DIR}")
 
 # Add CORS middleware
 app.add_middleware(
@@ -60,11 +81,13 @@ app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 @app.get("/", response_class=HTMLResponse)
 async def root():
     """Serve the HTML interface for the API"""
+    logger.info("Root endpoint accessed - serving web interface")
     return FileResponse(os.path.join(STATIC_DIR, "index.html"))
 
 @app.get("/api/status")
 async def status():
     """API status endpoint to check if the API is running"""
+    logger.info("API status check requested")
     return {"message": "AI-Assisted DIA API is running"}
 
 @app.post("/analyze")
@@ -82,37 +105,68 @@ async def analyze_data(
     Returns:
     - JSON response with analysis result
     """
+    # Log the incoming request
+    request_id = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    logger.info(f"[{request_id}] DIA Analysis request received")
+    logger.info(f"[{request_id}] File provided: {'Yes' if file else 'No'}")
+    logger.info(f"[{request_id}] Text input provided: {'Yes' if text_input else 'No'}")
+    
+    if file:
+        logger.info(f"[{request_id}] File details - Name: {file.filename}, Size: {file.size if hasattr(file, 'size') else 'Unknown'}")
+    
+    if text_input:
+        logger.info(f"[{request_id}] Text input length: {len(text_input)} characters")
+    
     if not file and not text_input:
+        logger.error(f"[{request_id}] Request rejected: No file or text input provided")
         raise HTTPException(status_code=400, detail="Either file or text input must be provided")
     
     # Handle file upload if provided
     uploaded_file_path = None
     if file:
+        logger.info(f"[{request_id}] Processing file upload: {file.filename}")
         try:
             # Create a temporary file
             with tempfile.NamedTemporaryFile(delete=False, dir=UPLOADS_DIR, suffix=os.path.splitext(file.filename)[1]) as temp_file:
                 uploaded_file_path = temp_file.name
+                logger.info(f"[{request_id}] Created temporary file: {uploaded_file_path}")
                 # Copy the uploaded file to the temporary file
                 shutil.copyfileobj(file.file, temp_file)
+                logger.info(f"[{request_id}] File uploaded successfully to temporary location")
         except Exception as e:
+            logger.error(f"[{request_id}] File upload failed: {str(e)}")
             raise HTTPException(status_code=500, detail=f"Error processing file upload: {str(e)}")
         finally:
             file.file.close()
     
     try:
+        logger.info(f"[{request_id}] Starting DIA analysis processing...")
+        start_time = datetime.now()
+        
         # Process the request
         result = process_dia_request(uploaded_file_path, text_input)
         
+        end_time = datetime.now()
+        processing_time = (end_time - start_time).total_seconds()
+        logger.info(f"[{request_id}] DIA analysis completed successfully in {processing_time:.2f} seconds")
+        logger.info(f"[{request_id}] Result length: {len(result) if result else 0} characters")
+        
         # Clean up the temporary file
         if uploaded_file_path and os.path.exists(uploaded_file_path):
+            logger.info(f"[{request_id}] Cleaning up temporary file: {uploaded_file_path}")
             os.unlink(uploaded_file_path)
         
+        logger.info(f"[{request_id}] DIA analysis request completed successfully")
         return JSONResponse(content={"result": result})
     except Exception as e:
+        logger.error(f"[{request_id}] DIA analysis failed with error: {str(e)}")
         # Clean up the temporary file in case of error
         if uploaded_file_path and os.path.exists(uploaded_file_path):
+            logger.info(f"[{request_id}] Cleaning up temporary file after error: {uploaded_file_path}")
             os.unlink(uploaded_file_path)
         raise HTTPException(status_code=500, detail=f"Error processing request: {str(e)}")
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host=HOST, port=PORT, reload=RELOAD)
+    logger.info("=== Starting DIA Assistant API Server ===")
+    logger.info(f"Server will start on {HOST}:{PORT} with reload={RELOAD}")
+    uvicorn.run("app:app", host=HOST, port=PORT, reload=RELOAD)
